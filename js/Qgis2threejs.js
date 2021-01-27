@@ -488,6 +488,11 @@ limitations:
       app.controls.update();
     }
 
+    // navigation
+    if (typeof ViewHelper !== "undefined") {
+      app.buildViewHelper(document.getElementById("navigation"));
+    }
+
     // labels
     app.labelVisible = Q3D.Config.label.visible;
     app.scene.labelRootElement = document.getElementById("labels");
@@ -877,6 +882,24 @@ limitations:
     app.scene2.add(mesh);
   };
 
+  var clock = new THREE.Clock();
+
+  app.buildViewHelper = function (container) {
+    app.renderer3 = new THREE.WebGLRenderer({alpha: true, antialias: true});
+    app.renderer3.setClearColor(0, 0);
+    app.renderer3.setSize(container.clientWidth, container.clientHeight);
+
+    app.container3 = container;
+    app.container3.appendChild(app.renderer3.domElement);
+
+    app.viewHelper = new ViewHelper(app.camera, {dom: container});
+    app.viewHelper.controls = app.controls;   //{center: function () { return app.controls.target; }};
+    app.viewHelper.addEventListener("requestAnimation", function (event) {
+      clock.start();
+      requestAnimationFrame(app.animate);
+    });
+  };
+
   app.currentViewUrl = function () {
     var c = app.camera.position, t = app.controls.target;
     var hash = "#cx=" + c.x + "&cy=" + c.y + "&cz=" + c.z;
@@ -909,8 +932,12 @@ limitations:
 
   // animation loop
   app.animate = function () {
-    if (app.running) requestAnimationFrame(app.animate);
-    app.render(true);
+    if (app.running || (app.viewHelper && app.viewHelper.animating)) requestAnimationFrame(app.animate);
+
+    if (app.viewHelper) {
+      app.viewHelper.update(clock.getDelta());
+    }
+    app.render(app.controls.autoRotate);    // true
   };
 
   app.render = function (updateControls) {
@@ -931,6 +958,11 @@ limitations:
       app.camera2.quaternion.copy(app.camera.quaternion);
 
       app.renderer2.render(app.scene2, app.camera2);
+    }
+
+    // navigation widget
+    if (app.viewHelper) {
+      app.viewHelper.render(app.renderer3);
     }
 
     // labels
